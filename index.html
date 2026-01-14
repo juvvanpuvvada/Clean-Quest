@@ -1,0 +1,2089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Clean Quest</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body { background: #f4f7f9; font-family: system-ui, Segoe UI, Arial; margin: 0; }
+    #hud { display: flex; gap: 1rem; padding: 0.75rem 1rem; background: #0f172a; color: #fff; align-items: center; flex-wrap: wrap; }
+    #hud span { font-weight: 600; }
+    #wrap { display: flex; justify-content: center; padding: 1rem; }
+    canvas { background: #eef2ff; border: 2px solid #334155; border-radius: 8px; outline: none; }
+    #footer { padding: 0.5rem 1rem; font-size: 0.9rem; color: #334155; }
+    .btn { background:#2563eb; color:#fff; border:none; padding:0.6rem 0.9rem; border-radius:8px; cursor:pointer; font-weight:600; }
+    .btn.secondary { background:#475569; }
+    .btn.warn { background:#ef4444; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .badges { display:flex; gap:8px; align-items:center; }
+    .badge { background:#22c55e; color:#072515; padding:0.25rem 0.5rem; border-radius:999px; font-size:12px; border:1px solid #16a34a; }
+    #overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(2,6,23,0.55); overflow-y: auto; padding: 20px 0; }
+    #modal { background: #ffffff; width: min(760px, 92vw); max-height: 90vh; overflow-y: auto; border-radius: 12px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: auto; }
+    #modal h2 { margin-top:0; }
+    #menu { display:flex; flex-direction:column; gap:16px; max-width: 700px; margin: 0 auto; }
+    .level-card { border:1px solid #cbd5e1; border-radius:10px; padding:16px; background:#f8fafc; display:flex; flex-direction:column; gap:12px; }
+    .level-card .flex { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+    .level-card strong { flex: 1 1 200px; }
+    .level-card .badges-group { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+    .level-card .btn { padding: 0.5rem 1.2rem; font-size: 14px; align-self: center; min-width: 160px; }
+    .flex { display:flex; align-items:center; gap:8px; }
+    .flex.button-row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:8px; }
+    .flex.button-row .btn { flex: 1 1 auto; min-width: 120px; }
+    .lock { font-size: 14px; color:#ef4444; margin-left:6px; }
+    .ok { font-size: 14px; color:#22c55e; margin-left:6px; }
+    #debug { margin-top:12px; border-top:1px solid #e2e8f0; padding-top:12px; font-family: Consolas, monospace; font-size: 13px; background:#f1f5f9; border-radius:8px; padding:12px; }
+    .key { display:inline-block; min-width:80px; margin-right:8px; }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <span id="gameTitle">Clean Quest</span>
+    <span id="levelLabel">Level: —</span>
+    <span id="score">Score: 0</span>
+    <span id="time">Time: —</span>
+    <span id="items">Items left: —</span>
+    <div class="badges" id="badgeBar" title="Earn badges by playing well"></div>
+    <span style="margin-left:auto">Controls: Arrow keys move, Space pick/drop</span>
+    <button id="mute" class="btn secondary" aria-label="Toggle sound">🔈 Sound</button>
+    <button id="changeAvatarHUD" class="btn" style="background:#9C27B0;" aria-label="Change avatar">Change Avatar</button>
+    <button id="openMenu" class="btn" aria-label="Open level select">Level Select</button>
+    <button id="resetProgress" class="btn warn" aria-label="Reset progress">Reset Progress</button>
+  </div>
+  <div id="wrap"><canvas id="game" width="960" height="540" tabindex="0" aria-label="Game canvas"></canvas></div>
+  <div id="footer">Progression is **gated**. Tip: Click anywhere in the game or press **Tab** to focus the canvas before using arrow keys. Use <b>Level Select</b> → choose level → <b>Start Level</b>.</div>
+
+  <!-- Overlay for menus / end screens -->
+  <div id="overlay">
+    <div id="modal" role="dialog" aria-modal="true">
+      <!-- Splash Screen -->
+      <div id="splash" style="display:none">
+        <div style="text-align:center; padding:22px 18px;">
+          <h1 style="font-size:2.2em; color:#2e7d32; margin-bottom:13px;">🌍 Clean City Quest 🌍</h1>
+          <div style="background:linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); padding:18px; border-radius:11px; margin:11px 0;">
+            <h2 style="color:#1832d6; margin-bottom:9px; font-size:1.43em;">Keep Our Country Litter-Free!</h2>
+            <p style="font-size:1.05em; line-height:1.55; color:#0f100f; margin:9px 0;">
+              A clean environment is everyone's responsibility. 
+              Every piece of litter properly disposed of makes our country cleaner and greener.
+            </p>
+          </div>
+          <div style="background:#fff3e0; padding:18px; border-radius:11px; margin:11px 0; border-left:4px solid #ff9800;">
+            <h3 style="color:#e65100; margin-bottom:9px; font-size:1.21em;">🎯 Your Mission</h3>
+            <p style="font-size:1em; line-height:1.5; color:#333; margin:0;">
+              ♻️ Sort litter into correct bins • 🌱 Keep areas clean
+              <br>⭐ Earn badges • 🏆 Become an Eco Champion!
+            </p>
+          </div>
+          <div style="margin-top:17px;">
+            <p style="font-style:italic; color:#666; margin-bottom:13px; font-size:1em;">
+              "Cleanliness is next to godliness. Let's make our country shine!"
+            </p>
+            <button id="startGame" class="btn" style="font-size:1.21em; padding:13px 38px; background:#2e7d32;">
+              Start Your Journey →
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Avatar Selection Screen -->
+      <div id="avatarSelect" style="display:none">
+        <div style="text-align:center; padding:18px 18px;">
+          <h2 style="font-size:1.8em; color:#2e7d32; margin-bottom:15px;">Choose Your Eco Hero! 👤</h2>
+          <p style="font-size:1em; color:#666; margin-bottom:20px;">
+            Select your character to represent you in the quest for a cleaner country
+          </p>
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:15px; max-width:540px; margin:0 auto 20px; position: relative;">
+            <!-- Boy Avatar -->
+            <div class="avatar-card" data-avatar="boy" style="cursor:pointer; border:3px solid transparent; border-radius:10px; padding:12px; background:#f5f5f5; transition:all 0.3s;">
+              <div style="width:70px; height:70px; margin:0 auto 8px; position:center; display:flex; align-items:center; justify-content:center;">
+                <canvas class="avatar-preview" data-type="boy" width="70" height="70"></canvas>
+              </div>
+              <p style="font-weight:bold; color:#333; margin:4px 0; font-size:0.95em;">Boy</p>
+              <p style="font-size:0.8em; color:#666; margin:0;">Classic Hero</p>
+            </div>
+            <!-- Girl Avatar -->
+            <div class="avatar-card" data-avatar="girl" style="cursor:pointer; border:3px solid transparent; border-radius:10px; padding:12px; background:#f5f5f5; transition:all 0.3s;">
+              <div style="width:70px; height:70px; margin:0 auto 8px; position:relative; display:flex; align-items:center; justify-content:center;">
+                <canvas class="avatar-preview" data-type="girl" width="70" height="70"></canvas>
+              </div>
+              <p style="font-weight:bold; color:#333; margin:4px 0; font-size:0.95em;">Girl</p>
+              <p style="font-size:0.8em; color:#666; margin:0;">Eco Warrior</p>
+            </div>
+            <!-- Robot Avatar -->
+            <div class="avatar-card" data-avatar="robot" style="cursor:pointer; border:3px solid transparent; border-radius:10px; padding:12px; background:#f5f5f5; transition:all 0.3s;">
+              <div style="width:70px; height:70px; margin:0 auto 8px; position:relative; display:flex; align-items:center; justify-content:center;">
+                <canvas class="avatar-preview" data-type="robot" width="70" height="70"></canvas>
+              </div>
+              <p style="font-weight:bold; color:#333; margin:4px 0; font-size:0.95em;">Robot</p>
+              <p style="font-size:0.8em; color:#666; margin:0;">Tech Cleaner</p>
+            </div>
+            <!-- Cat Avatar -->
+            <div class="avatar-card" data-avatar="cat" style="cursor:pointer; border:3px solid transparent; border-radius:10px; padding:12px; background:#f5f5f5; transition:all 0.3s;">
+              <div style="width:70px; height:70px; margin:0 auto 8px; position:relative; display:flex; align-items:center; justify-content:center;">
+                <canvas class="avatar-preview" data-type="cat" width="70" height="70"></canvas>
+              </div>
+              <p style="font-weight:bold; color:#333; margin:4px 0; font-size:0.95em;">Cat</p>
+              <p style="font-size:0.8em; color:#666; margin:0;">Curious Helper</p>
+            </div>
+            <!-- Dog Avatar -->
+            <div class="avatar-card" data-avatar="dog" style="cursor:pointer; border:3px solid transparent; border-radius:10px; padding:12px; background:#f5f5f5; transition:all 0.3s;">
+              <div style="width:70px; height:70px; margin:0 auto 8px; position:relative; display:flex; align-items:center; justify-content:center;">
+                <canvas class="avatar-preview" data-type="dog" width="70" height="70"></canvas>
+              </div>
+              <p style="font-weight:bold; color:#333; margin:4px 0; font-size:0.95em;">Dog</p>
+              <p style="font-size:0.8em; color:#666; margin:0;">Loyal Companion</p>
+            </div>
+            <!-- Alien Avatar -->
+            <div class="avatar-card" data-avatar="alien" style="cursor:pointer; border:3px solid transparent; border-radius:10px; padding:12px; background:#f5f5f5; transition:all 0.3s;">
+              <div style="width:70px; height:70px; margin:0 auto 8px; position:relative; display:flex; align-items:center; justify-content:center;">
+                <canvas class="avatar-preview" data-type="alien" width="70" height="70"></canvas>
+              </div>
+              <p style="font-weight:bold; color:#333; margin:4px 0; font-size:0.95em;">Alien</p>
+              <p style="font-size:0.8em; color:#666; margin:0;">Space Visitor</p>
+            </div>
+          </div>
+          <button id="confirmAvatar" class="btn" style="font-size:1.1em; padding:12px 35px; background:#2e7d32;" disabled>
+            Continue to Game →
+          </button>
+        </div>
+      </div>
+      
+      <div id="menu" style="display:none">
+        <h2>Level Select (Progression)</h2>
+        <div class="level-card">
+          <div class="flex">
+            <strong>Level 1 — School Yard (Tutorial)</strong>
+            <div class="badges-group">
+              <span class="badge">10 items</span>
+              <span class="badge">100 sec</span>
+              <span id="status1" class="ok">Unlocked</span>
+            </div>
+          </div>
+          <button class="btn" data-level="1" id="btn1">Select Level 1</button>
+        </div>
+        <div class="level-card">
+          <div class="flex">
+            <strong>Level 2 — Park</strong>
+            <div class="badges-group">
+              <span class="badge">20 items</span>
+              <span class="badge">90 sec</span>
+              <span id="status2" class="lock">Locked</span>
+            </div>
+          </div>
+          <button class="btn" data-level="2" id="btn2" disabled>Select Level 2</button>
+        </div>
+        <div class="level-card">
+          <div class="flex">
+            <strong>Level 3 — Street</strong>
+            <div class="badges-group">
+              <span class="badge">30 items</span>
+              <span class="badge">80 sec</span>
+              <span id="status3" class="lock">Locked</span>
+            </div>
+          </div>
+          <button class="btn" data-level="3" id="btn3" disabled>Select Level 3</button>
+        </div>
+        <div class="level-card">
+          <div class="flex">
+            <strong>Boss — Festival/Parade</strong>
+            <div class="badges-group">
+              <span class="badge">Rapid spawn</span>
+              <span class="badge">6 bins</span>
+              <span id="status4" class="lock">Locked</span>
+            </div>
+          </div>
+          <button class="btn" data-level="4" id="btn4" disabled>Select Boss</button>
+        </div>
+        <div class="flex button-row">
+          <button id="closeMenu" class="btn secondary">Close</button>
+          <button id="changeAvatar" class="btn secondary" style="background:#9C27B0;">Change Avatar</button>
+          <button id="startLevelBtn" class="btn" disabled>Start Level</button>
+        </div>
+        <div id="debug">
+          <div><strong></strong></div>
+          <div id="dbgFocus">Focus: (unknown)</div>
+          <div id="dbgKeys">
+            <span class="key">Left: <span id="kLeft">false</span></span>
+            <span class="key">Right: <span id="kRight">false</span></span>
+            <span class="key">Up: <span id="kUp">false</span></span>
+            <span class="key">Down: <span id="kDown">false</span></span>
+            <span class="key">Space: <span id="kSpace">false</span></span>
+          </div>
+          <div>Items (litter) count: <span id="dbgLitter">0</span></div>
+        </div>
+      </div>
+      <div id="end" style="display:none">
+        <h2 id="endTitle">Level Complete!</h2>
+        <p id="endSummary">Summary goes here.</p>
+        <div>
+          <h3>Badges Earned</h3>
+          <div id="endBadges" class="badges"></div>
+        </div>
+        <div style="margin-top:12px" class="flex">
+          <button id="replay" class="btn">Replay Level</button>
+          <button id="nextLevel" class="btn">Next Level</button>
+          <button id="goMenu" class="btn secondary">Level Select</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ----------- SIMPLE DRAW (NO IMAGE DEPENDENCY) -----------
+    // Using colored rectangles + labels instead of images for max reliability
+    const COLORS = {
+      bin: {
+        Recycle: '#2e7d32', Organic: '#388e3c', Landfill: '#616161',
+        Glass: '#78909c', Paper: '#ffffff', Metal: '#9e9e9e'
+      },
+      item: {
+        plastic: '#90caf9', paperItem: '#fff', glassItem: '#81d4fa', banana: '#fdd835', wrapper: '#ef9a9a', can: '#bdbdbd'
+      }
+    };
+
+    // WebAudio helper (optional)
+    const AudioCtx = window.AudioContext || window.webkitAudioContext; let audio, audioEnabled = true;
+    try { audio = new AudioCtx(); } catch(e) { audioEnabled = false; }
+    function playTone(freq=440,duration=0.08,type='sine',volume=0.15){ if(!audioEnabled||!audio) return; const osc=audio.createOscillator(); const gain=audio.createGain(); osc.type=type; osc.frequency.value=freq; gain.gain.setValueAtTime(volume,audio.currentTime); osc.connect(gain); gain.connect(audio.destination); osc.start(); osc.stop(audio.currentTime+duration); }
+    function playCorrect(){ playTone(660,0.08,'sine'); setTimeout(()=>playTone(880,0.1,'sine'),60); }
+    function playIncorrect(){ playTone(160,0.12,'square'); }
+    function playPickup(){ playTone(520,0.06,'triangle'); }
+
+    const canvas = document.getElementById('game'); canvas.tabIndex = 0;
+    const ctx = canvas.getContext('2d'); const W = canvas.width, H = canvas.height;
+
+    const hudTitle=document.getElementById('gameTitle'); const hudLevel=document.getElementById('levelLabel'); const hudScore=document.getElementById('score'); const hudTime=document.getElementById('time'); const hudItems=document.getElementById('items'); const badgeBar=document.getElementById('badgeBar'); const muteBtn=document.getElementById('mute'); const changeAvatarHUDBtn=document.getElementById('changeAvatarHUD'); const openMenuBtn=document.getElementById('openMenu'); const resetBtn=document.getElementById('resetProgress');
+
+    const overlay=document.getElementById('overlay'); const splashPane=document.getElementById('splash'); const avatarPane=document.getElementById('avatarSelect'); const menuPane=document.getElementById('menu'); const endPane=document.getElementById('end'); const endTitle=document.getElementById('endTitle'); const endSummary=document.getElementById('endSummary'); const endBadges=document.getElementById('endBadges'); const replayBtn=document.getElementById('replay'); const nextBtn=document.getElementById('nextLevel'); const goMenuBtn=document.getElementById('goMenu'); const startLevelBtn=document.getElementById('startLevelBtn'); const startGameBtn=document.getElementById('startGame'); const confirmAvatarBtn=document.getElementById('confirmAvatar'); const changeAvatarBtn=document.getElementById('changeAvatar');
+
+    let selectedAvatar = 'boy'; // Default avatar
+
+    const statusEls={1:document.getElementById('status1'),2:document.getElementById('status2'),3:document.getElementById('status3'),4:document.getElementById('status4')}; const btnEls={1:document.getElementById('btn1'),2:document.getElementById('btn2'),3:document.getElementById('btn3'),4:document.getElementById('btn4')};
+
+    const kLeft=document.getElementById('kLeft'), kRight=document.getElementById('kRight'), kUp=document.getElementById('kUp'), kDown=document.getElementById('kDown'), kSpace=document.getElementById('kSpace');
+    const dbgFocus=document.getElementById('dbgFocus'); const dbgLitter=document.getElementById('dbgLitter');
+
+    const progressKey='ccq_progress_v1'; let progress=JSON.parse(localStorage.getItem(progressKey)||'{"highestUnlocked":1,"completed":[]}'); function saveProgress(){ localStorage.setItem(progressKey, JSON.stringify(progress)); }
+    function updateMenuLocks(){ for(let i=1;i<=4;i++){ const unlocked=progress.highestUnlocked>=i; statusEls[i].textContent=unlocked?(progress.completed.includes(i)?'Completed':'Unlocked'):'Locked'; statusEls[i].className=unlocked?'ok':'lock'; btnEls[i].disabled=!unlocked; } }
+
+    const Levels={ 1:{name:'School Yard',items:10,time:100,puddles:[{x:300,y:H-140,w:120,h:26}],hints:true,type:'basic'}, 2:{name:'Park',items:20,time:90,puddles:[{x:260,y:H-120,w:140,h:28},{x:560,y:H-160,w:160,h:32}],hints:false,type:'basic'}, 3:{name:'Street',items:25,time:80,puddles:[{x:220,y:H-130,w:150,h:30},{x:460,y:H-180,w:170,h:34},{x:720,y:H-110,w:120,h:26}],hints:false,type:'basicStreak'}, 4:{name:'Boss — Festival/Parade',items:35,time:75,puddles:[{x:300,y:H-140,w:160,h:28},{x:700,y:H-180,w:160,h:28}],hints:false,type:'boss'} };
+    const itemTypesBasic=[ {key:'plastic',bin:'Recycle',label:'Plastic'}, {key:'paperItem',bin:'Recycle',label:'Paper'}, {key:'glassItem',bin:'Recycle',label:'Glass'}, {key:'banana',bin:'Organic',label:'Banana'}, {key:'wrapper',bin:'Landfill',label:'Wrapper'} ];
+    const itemTypesBoss=[ {key:'plastic',bin:'Recycle',label:'Plastic'}, {key:'paperItem',bin:'Paper',label:'Paper'}, {key:'glassItem',bin:'Glass',label:'Glass'}, {key:'banana',bin:'Organic',label:'Banana'}, {key:'wrapper',bin:'Landfill',label:'Wrapper'}, {key:'can',bin:'Metal',label:'Can'} ];
+
+    let keys={}; const playerDefaultSpeed=4; const player={x:80,y:H-120,w:40,h:40,speed:playerDefaultSpeed,carrying:null};
+    let bins=[]; let puddles=[]; let litter=[]; let score=0,timeLeft=0,itemsRemaining=0,playing=false; let currentLevel=0,mode='menu';
+    let endMessage = ''; // Add this variable declaration
+    const badgeStates={BinBoss:false,EcoHero:false,RapidRecycler:false}; let mistakes=0,comboStreak=0,bestCombo=0; function resetBadges(){ badgeStates.BinBoss=false; badgeStates.EcoHero=false; badgeStates.RapidRecycler=false; mistakes=0; comboStreak=0; bestCombo=0; updateBadgeBar(); } function updateBadgeBar(){ badgeBar.innerHTML=''; Object.entries(badgeStates).forEach(([n,e])=>{ if(e){ const b=document.createElement('span'); b.className='badge'; b.textContent=n; badgeBar.appendChild(b);} }); }
+
+    let spawnRate=1200,spawnerActive=false,processed=0; const maxOnGround=28,wrongPenalty=8,streakBonus=5;
+
+    function rectsOverlap(a,b){ return !(a.x+a.w<b.x || a.x>b.x+b.w || a.y+a.h<b.y || a.y>b.y+b.h); }
+
+    function drawBackground(){       
+      if (!currentLevel || !Levels[currentLevel]) {
+        ctx.fillStyle = '#f1f5f9';
+        ctx.fillRect(0,0,W,H);
+        ctx.fillStyle = '#0f172a';
+        ctx.font = '16px sans-serif';
+        ctx.fillText('Open Level Select to start a level.', 20, 36);
+        return;
+      }
+      if(currentLevel===1){ 
+        // Sky - minimal blue at top only
+        ctx.fillStyle='#87CEEB'; 
+        ctx.fillRect(0,0,W,120); 
+        
+        // Small clouds (only 2, smaller)
+        ctx.fillStyle='rgba(255,255,255,0.7)';
+        ctx.beginPath();
+        ctx.arc(200, 50, 20, 0, Math.PI*2);
+        ctx.arc(220, 45, 25, 0, Math.PI*2);
+        ctx.arc(245, 50, 18, 0, Math.PI*2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(750, 40, 22, 0, Math.PI*2);
+        ctx.arc(770, 38, 20, 0, Math.PI*2);
+        ctx.fill();
+        
+        // Small sun in corner
+        ctx.fillStyle='#FFD700';
+        ctx.beginPath();
+        ctx.arc(900, 35, 25, 0, Math.PI*2);
+        ctx.fill();
+        
+        // School building (colorful) - bigger and more visible
+        ctx.fillStyle='#FF6B6B'; // Red/pink building
+        ctx.fillRect(650, 120, 280, 220);
+        // Roof
+        ctx.fillStyle='#C44569';
+        ctx.beginPath();
+        ctx.moveTo(640, 120);
+        ctx.lineTo(790, 60);
+        ctx.lineTo(940, 120);
+        ctx.closePath();
+        ctx.fill();
+        // Windows
+        ctx.fillStyle='#FFE66D';
+        for(let r=0; r<2; r++) {
+          for(let c=0; c<4; c++) {
+            ctx.fillRect(680 + c*60, 150 + r*60, 35, 40);
+          }
+        }
+        // Door
+        ctx.fillStyle='#5D4E6D';
+        ctx.fillRect(770, 290, 40, 50);
+        
+        // Green grass - large area (main playground)
+        ctx.fillStyle='#7EC850'; 
+        ctx.fillRect(0, 120, W, H-120);
+        
+        // Playground equipment - Swing set (bigger and lower)
+        ctx.strokeStyle='#8B4513';
+        ctx.lineWidth=6;
+        ctx.beginPath();
+        ctx.moveTo(100, H-120);
+        ctx.lineTo(120, H-220);
+        ctx.lineTo(180, H-220);
+        ctx.lineTo(200, H-120);
+        ctx.stroke();
+        // Top bar
+        ctx.strokeStyle='#654321';
+        ctx.lineWidth=6;
+        ctx.beginPath();
+        ctx.moveTo(120, H-220);
+        ctx.lineTo(180, H-220);
+        ctx.stroke();
+        // Swings
+        ctx.strokeStyle='#696969';
+        ctx.lineWidth=2;
+        ctx.beginPath();
+        ctx.moveTo(135, H-220);
+        ctx.lineTo(135, H-160);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(165, H-220);
+        ctx.lineTo(165, H-160);
+        ctx.stroke();
+        // Swing seats
+        ctx.fillStyle='#FF6347';
+        ctx.fillRect(125, H-165, 20, 8);
+        ctx.fillRect(155, H-165, 20, 8);
+        
+        // Slide
+        ctx.fillStyle='#4169E1'; // Blue slide
+        ctx.beginPath();
+        ctx.moveTo(350, H-200);
+        ctx.lineTo(450, H-120);
+        ctx.lineTo(450, H-105);
+        ctx.lineTo(340, H-185);
+        ctx.closePath();
+        ctx.fill();
+        // Slide ladder
+        ctx.strokeStyle='#FFD700';
+        ctx.lineWidth=4;
+        for(let i=0; i<5; i++) {
+          ctx.beginPath();
+          ctx.moveTo(340, H-185 + i*18);
+          ctx.lineTo(355, H-185 + i*18);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.moveTo(345, H-185);
+        ctx.lineTo(345, H-120);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(355, H-185);
+        ctx.lineTo(355, H-120);
+        ctx.stroke();
+        
+        // Green grass with flowers
+        ctx.fillStyle='#7EC850'; 
+        ctx.fillRect(0,H-100,W,100);
+        // Flowers
+        const flowerColors = ['#FF69B4', '#FFD700', '#FF6347', '#9370DB', '#FFA500'];
+        for(let i=0; i<15; i++) {
+          const fx = 50 + i*60;
+          const fy = H-90 + (i%3)*10;
+          ctx.fillStyle = flowerColors[i % flowerColors.length];
+          ctx.beginPath();
+          ctx.arc(fx, fy, 4, 0, Math.PI*2);
+          ctx.fill();
+          ctx.fillStyle='#FFD700';
+          ctx.beginPath();
+          ctx.arc(fx, fy, 2, 0, Math.PI*2);
+          ctx.fill();
+        }
+        
+        // Path/walkway
+        ctx.fillStyle='#D3D3D3'; 
+        ctx.fillRect(550,H-120,100,20);
+      } 
+        else if(currentLevel===2){ 
+          // Sky - light blue
+          ctx.fillStyle='#87CEEB'; 
+          ctx.fillRect(0,0,W,H*0.4); 
+          
+          // City buildings silhouette in background
+          const buildings = [
+            {x:50, y:H*0.25, w:80, h:100},
+            {x:150, y:H*0.2, w:60, h:130},
+            {x:230, y:H*0.27, w:90, h:90},
+            {x:340, y:H*0.23, w:70, h:115},
+            {x:650, y:H*0.24, w:85, h:105},
+            {x:750, y:H*0.21, w:75, h:125},
+            {x:840, y:H*0.26, w:70, h:95}
+          ];
+          buildings.forEach(b => {
+            ctx.fillStyle='#B0C4DE';
+            ctx.fillRect(b.x, b.y, b.w, b.h);
+            // Windows
+            ctx.fillStyle='#778899';
+            for(let r=0; r<4; r++) {
+              for(let c=0; c<3; c++) {
+                ctx.fillRect(b.x + 10 + c*20, b.y + 15 + r*20, 12, 15);
+              }
+            }
+          });
+          
+          // Green grass with varied shades
+          ctx.fillStyle='#7EC850'; 
+          ctx.fillRect(0,H*0.4,W,H*0.6); 
+          
+          // Darker grass patches for depth
+          ctx.fillStyle='#6FB53E';
+          ctx.beginPath();
+          ctx.ellipse(150, H*0.6, 80, 20, 0, 0, Math.PI*2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.ellipse(600, H*0.65, 100, 25, 0, 0, Math.PI*2);
+          ctx.fill();
+          
+          // Walking path - winding through park
+          ctx.fillStyle='#D2B48C';
+          ctx.beginPath();
+          ctx.moveTo(0, H*0.55);
+          ctx.quadraticCurveTo(W*0.3, H*0.5, W*0.5, H*0.58);
+          ctx.quadraticCurveTo(W*0.7, H*0.65, W, H*0.6);
+          ctx.lineTo(W, H*0.63);
+          ctx.quadraticCurveTo(W*0.7, H*0.68, W*0.5, H*0.61);
+          ctx.quadraticCurveTo(W*0.3, H*0.53, 0, H*0.58);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Trees with rounded canopies
+          const trees = [
+            {x:100, y:H*0.52, trunkH:60, canopyR:45},
+            {x:280, y:H*0.5, trunkH:70, canopyR:50},
+            {x:450, y:H*0.53, trunkH:55, canopyR:42},
+            {x:700, y:H*0.51, trunkH:65, canopyR:48},
+            {x:850, y:H*0.54, trunkH:58, canopyR:44}
+          ];
+          trees.forEach(tree => {
+            // Trunk
+            ctx.fillStyle='#8B4513';
+            ctx.fillRect(tree.x-8, tree.y, 16, tree.trunkH);
+            // Canopy - layered circles for depth
+            ctx.fillStyle='#228B22';
+            ctx.beginPath();
+            ctx.arc(tree.x, tree.y-10, tree.canopyR, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle='#2E8B57';
+            ctx.beginPath();
+            ctx.arc(tree.x-15, tree.y-5, tree.canopyR*0.7, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(tree.x+15, tree.y, tree.canopyR*0.6, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle='#32CD32';
+            ctx.beginPath();
+            ctx.arc(tree.x, tree.y-20, tree.canopyR*0.5, 0, Math.PI*2);
+            ctx.fill();
+          });
+          
+          // Bushes
+          const bushes = [{x:200, y:H*0.65}, {x:550, y:H*0.68}, {x:400, y:H*0.7}];
+          bushes.forEach(bush => {
+            ctx.fillStyle='#3CB371';
+            ctx.beginPath();
+            ctx.arc(bush.x-15, bush.y, 20, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(bush.x, bush.y-5, 22, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(bush.x+15, bush.y, 20, 0, Math.PI*2);
+            ctx.fill();
+          });
+          
+          // Park benches
+          const benches = [{x:320, y:H*0.62}, {x:650, y:H*0.7}];
+          benches.forEach(bench => {
+            // Bench seat
+            ctx.fillStyle='#8B4513';
+            ctx.fillRect(bench.x, bench.y, 60, 8);
+            // Bench back
+            ctx.fillRect(bench.x, bench.y-20, 60, 8);
+            // Legs
+            ctx.fillRect(bench.x+5, bench.y, 6, 15);
+            ctx.fillRect(bench.x+49, bench.y, 6, 15);
+            // Supports
+            ctx.fillRect(bench.x+5, bench.y-20, 6, 20);
+            ctx.fillRect(bench.x+49, bench.y-20, 6, 20);
+          });
+          
+          // Flowers scattered in grass
+          const flowers = [
+            {x:80, y:H*0.63, color:'#FF1493'},
+            {x:130, y:H*0.67, color:'#FFD700'},
+            {x:240, y:H*0.71, color:'#FF69B4'},
+            {x:370, y:H*0.58, color:'#FF6347'},
+            {x:500, y:H*0.73, color:'#DA70D6'},
+            {x:620, y:H*0.59, color:'#FFA500'},
+            {x:780, y:H*0.72, color:'#FF1493'},
+            {x:900, y:H*0.68, color:'#FFD700'}
+          ];
+          flowers.forEach(f => {
+            // Petals
+            ctx.fillStyle=f.color;
+            for(let p=0; p<5; p++) {
+              ctx.beginPath();
+              ctx.arc(f.x + Math.cos(p*Math.PI*2/5)*5, f.y + Math.sin(p*Math.PI*2/5)*5, 4, 0, Math.PI*2);
+              ctx.fill();
+            }
+            // Center
+            ctx.fillStyle='#FFD700';
+            ctx.beginPath();
+            ctx.arc(f.x, f.y, 3, 0, Math.PI*2);
+            ctx.fill();
+          });
+          
+          // Street lamp
+          ctx.fillStyle='#696969';
+          ctx.fillRect(500, H*0.48, 8, 80);
+          ctx.fillStyle='#FFD700';
+          ctx.beginPath();
+          ctx.arc(504, H*0.48, 12, 0, Math.PI*2);
+          ctx.fill();
+          ctx.fillStyle='#FFE66D';
+          ctx.beginPath();
+          ctx.arc(504, H*0.48, 8, 0, Math.PI*2);
+          ctx.fill();
+          
+          } else if(currentLevel===3)
+          { 
+          // Sky with gradient (light blue to lighter at horizon) - reduced to 15%
+          const skyGrad = ctx.createLinearGradient(0, 0, 0, H*0.15);
+          skyGrad.addColorStop(0, '#87CEEB');
+          skyGrad.addColorStop(1, '#B0D4E3');
+          ctx.fillStyle = skyGrad;
+          ctx.fillRect(0, 0, W, H*0.15); 
+          
+          // Sun - smaller and positioned lower
+          ctx.fillStyle='#FFD700';
+          ctx.beginPath();
+          ctx.arc(150, 35, 25, 0, Math.PI*2);
+          ctx.fill();
+          ctx.fillStyle='#FFF8DC';
+          ctx.beginPath();
+          ctx.arc(150, 35, 18, 0, Math.PI*2);
+          ctx.fill();
+          
+          // White fluffy clouds - fewer and smaller
+          const clouds = [
+            {x:500, y:30}, {x:750, y:35}
+          ];
+          clouds.forEach(cloud => {
+            ctx.fillStyle='#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(cloud.x, cloud.y, 18, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(cloud.x+22, cloud.y, 22, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(cloud.x+40, cloud.y+2, 16, 0, Math.PI*2);
+            ctx.fill();
+          });
+          
+          // Desert sand/ground with gradient - now takes up 85% of canvas
+          const groundGrad = ctx.createLinearGradient(0, H*0.15, 0, H);
+          groundGrad.addColorStop(0, '#E8D4A2');
+          groundGrad.addColorStop(1, '#D4B896');
+          ctx.fillStyle = groundGrad;
+          ctx.fillRect(0, H*0.15, W, H*0.85);
+          
+          // Distant mountains (purple/blue silhouettes) - smaller and lower
+          ctx.fillStyle='#9B8BA8';
+          ctx.beginPath();
+          ctx.moveTo(0, H*0.22);
+          ctx.lineTo(150, H*0.17);
+          ctx.lineTo(280, H*0.19);
+          ctx.lineTo(450, H*0.16);
+          ctx.lineTo(600, H*0.18);
+          ctx.lineTo(750, H*0.17);
+          ctx.lineTo(W, H*0.2);
+          ctx.lineTo(W, H*0.22);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Road with perspective - tapers toward horizon
+          const vanishX = W/2;  // Vanishing point X
+          const vanishY = H*0.2; // Vanishing point Y (horizon) - moved down
+          
+          // Dark gray asphalt road
+          ctx.fillStyle='#4A4A4A';
+          ctx.beginPath();
+          ctx.moveTo(vanishX-50, vanishY); // Top left (narrow at horizon)
+          ctx.lineTo(vanishX+50, vanishY); // Top right
+          ctx.lineTo(W, H); // Bottom right (wide)
+          ctx.lineTo(0, H); // Bottom left
+          ctx.closePath();
+          ctx.fill();
+          
+          // Yellow center line with perspective (dashed)
+          ctx.fillStyle='#FFD700';
+          for(let i=0; i<12; i++) {
+            const t = i / 11; // 0 to 1
+            const y = vanishY + (H - vanishY) * t;
+            const width = 2 + t * 6; // Gets wider
+            const dashLength = 15 + t * 25; // Gets longer
+            const gapStart = y + dashLength;
+            
+            if(gapStart < H) {
+              ctx.fillRect(vanishX - width/2, y, width, dashLength);
+            }
+          }
+          
+          // White edge lines with perspective (dashed)
+          ctx.fillStyle='#FFFFFF';
+          
+          // Left white line
+          for(let i=0; i<12; i++) {
+            const t = i / 11;
+            const y = vanishY + (H - vanishY) * t;
+            const leftX = vanishX - 50 + (0 - (vanishX - 50)) * t; // Interpolate to left edge
+            const width = 2 + t * 4;
+            const dashLength = 12 + t * 20;
+            const gapStart = y + dashLength;
+            
+            if(gapStart < H && leftX > 50) {
+              ctx.fillRect(leftX - width/2, y, width, dashLength);
+            }
+          }
+          
+          // Right white line
+          for(let i=0; i<12; i++) {
+            const t = i / 11;
+            const y = vanishY + (H - vanishY) * t;
+            const rightX = vanishX + 50 + (W - (vanishX + 50)) * t; // Interpolate to right edge
+            const width = 2 + t * 4;
+            const dashLength = 12 + t * 20;
+            const gapStart = y + dashLength;
+            
+            if(gapStart < H && rightX < W-50) {
+              ctx.fillRect(rightX - width/2, y, width, dashLength);
+            }
+          }
+          
+          // Cacti on sides of road for desert feel
+          const cacti = [
+            {x:120, y:H*0.7, size:0.8},
+            {x:280, y:H*0.65, size:0.6},
+            {x:W-120, y:H*0.72, size:0.9},
+            {x:W-250, y:H*0.68, size:0.7}
+          ];
+          
+          cacti.forEach(cactus => {
+            ctx.fillStyle='#2E7D32';
+            const w = 15 * cactus.size;
+            const h = 60 * cactus.size;
+            // Main trunk
+            ctx.fillRect(cactus.x - w/2, cactus.y - h, w, h);
+            // Left arm
+            ctx.fillRect(cactus.x - w/2 - 20*cactus.size, cactus.y - h*0.6, w*0.8, h*0.4);
+            // Right arm  
+            ctx.fillRect(cactus.x + w/2, cactus.y - h*0.7, w*0.8, h*0.35);
+            
+            // Cactus highlights
+            ctx.fillStyle='#4CAF50';
+            ctx.fillRect(cactus.x - w/2 + 2, cactus.y - h, 3, h);
+          });
+          
+          } else if(currentLevel===4) {
+            // Level 4: Realistic Carnival/Festival scene
+            
+            // Sky - realistic gradient from light to darker blue (reduced to 10%)
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, H*0.1);
+            skyGrad.addColorStop(0, '#5BA3D0');
+            skyGrad.addColorStop(0.5, '#87CEEB');
+            skyGrad.addColorStop(1, '#B8D4E8');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, W, H*0.1);
+            
+            // Clouds - realistic fluffy clouds
+            const clouds = [
+              {x:150, y:40, size:1},
+              {x:500, y:60, size:0.8},
+              {x:750, y:35, size:0.9}
+            ];
+            clouds.forEach(cloud => {
+              ctx.fillStyle='rgba(255,255,255,0.85)';
+              ctx.beginPath();
+              ctx.arc(cloud.x, cloud.y, 25*cloud.size, 0, Math.PI*2);
+              ctx.fill();
+              ctx.beginPath();
+              ctx.arc(cloud.x+30*cloud.size, cloud.y, 30*cloud.size, 0, Math.PI*2);
+              ctx.fill();
+              ctx.beginPath();
+              ctx.arc(cloud.x+55*cloud.size, cloud.y+5*cloud.size, 22*cloud.size, 0, Math.PI*2);
+              ctx.fill();
+              ctx.beginPath();
+              ctx.arc(cloud.x+15*cloud.size, cloud.y+8*cloud.size, 20*cloud.size, 0, Math.PI*2);
+              ctx.fill();
+            });
+            
+            // Sun with glow
+            const sunGrad = ctx.createRadialGradient(100, 60, 0, 100, 60, 50);
+            sunGrad.addColorStop(0, '#FFEB3B');
+            sunGrad.addColorStop(0.5, '#FFD700');
+            sunGrad.addColorStop(0.7, '#FFC107');
+            sunGrad.addColorStop(1, 'rgba(255,193,7,0)');
+            ctx.fillStyle = sunGrad;
+            ctx.beginPath();
+            ctx.arc(100, 40, 40, 0, Math.PI*2);
+            ctx.fill();
+            
+            // Ground - textured festival ground with grass/dirt mix
+            const groundGrad = ctx.createLinearGradient(0, H*0.1, 0, H);
+            groundGrad.addColorStop(0, '#8B7355');
+            groundGrad.addColorStop(0.3, '#A0826D');
+            groundGrad.addColorStop(0.7, '#9C8169');
+            groundGrad.addColorStop(1, '#7A6450');
+            ctx.fillStyle = groundGrad;
+            ctx.fillRect(0, H*0.1, W, H*0.9);
+            
+            // Ground texture - dirt patches
+            ctx.fillStyle='rgba(101,67,33,0.15)';
+            for(let i=0; i<30; i++) {
+              const gx = Math.random() * W;
+              const gy = H*0.1 + Math.random() * H*0.9;
+              const size = 10 + Math.random() * 20;
+              ctx.beginPath();
+              ctx.ellipse(gx, gy, size, size*0.6, 0, 0, Math.PI*2);
+              ctx.fill();
+            }
+            
+            // Festival banners/bunting - more realistic with shadows
+            const bunting = [
+              {x:0, colors:['#E53935', '#FDD835', '#1E88E5', '#43A047', '#FB8C00', '#8E24AA', '#E91E63']},
+              {x:W*0.5, colors:['#FDD835', '#1E88E5', '#E53935', '#8E24AA', '#43A047', '#E91E63', '#FB8C00']}
+            ];
+            
+            bunting.forEach(b => {
+              // String/rope
+              ctx.strokeStyle='#6D4C41';
+              ctx.lineWidth = 3;
+              ctx.beginPath();
+              ctx.moveTo(b.x, H*0.1);
+              ctx.lineTo(b.x + W*0.5, H*0.1);
+              ctx.stroke();
+              
+              // Triangular flags with shadow
+              for(let i=0; i<7; i++) {
+                const fx = b.x + i * 70 + 20;
+                // Flag shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                ctx.beginPath();
+                ctx.moveTo(fx+2, H*0.1+2);
+                ctx.lineTo(fx + 27, H*0.1+2);
+                ctx.lineTo(fx + 14.5, H*0.1 + 37);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Flag
+                ctx.fillStyle = b.colors[i];
+                ctx.beginPath();
+                ctx.moveTo(fx, H*0.1);
+                ctx.lineTo(fx + 25, H*0.1);
+                ctx.lineTo(fx + 12.5, H*0.1 + 35);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Flag outline
+                ctx.strokeStyle='rgba(0,0,0,0.3)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                
+                // Flag highlight
+                ctx.fillStyle='rgba(255,255,255,0.25)';
+                ctx.beginPath();
+                ctx.moveTo(fx+2, H*0.1+2);
+                ctx.lineTo(fx+12, H*0.1+2);
+                ctx.lineTo(fx+7, H*0.1+15);
+                ctx.closePath();
+                ctx.fill();
+              }
+            });
+            
+            // Realistic food stalls/booths with depth
+            const stalls = [
+              {x:70, w:130, h:110, color:'#D32F2F', name:'🍔 FOOD', roofColor:'#B71C1C'},
+              {x:240, w:130, h:110, color:'#0288D1', name:'🥤 DRINKS', roofColor:'#01579B'},
+              {x:600, w:130, h:110, color:'#F57C00', name:'🎯 GAMES', roofColor:'#E65100'},
+              {x:770, w:130, h:110, color:'#7B1FA2', name:'🍿 SNACKS', roofColor:'#4A148C'}
+            ];
+            
+            stalls.forEach(stall => {
+              // Stall shadow
+              ctx.fillStyle = 'rgba(0,0,0,0.25)';
+              ctx.fillRect(stall.x+5, H*0.48+5, stall.w, stall.h);
+              
+              // Stall back wall with gradient
+              const wallGrad = ctx.createLinearGradient(stall.x, H*0.48, stall.x+stall.w, H*0.48);
+              wallGrad.addColorStop(0, darkenColor(stall.color, 20));
+              wallGrad.addColorStop(0.5, stall.color);
+              wallGrad.addColorStop(1, darkenColor(stall.color, 15));
+              ctx.fillStyle = wallGrad;
+              ctx.fillRect(stall.x, H*0.48, stall.w, stall.h);
+              
+              // Roof/awning with 3D effect
+              ctx.fillStyle = stall.roofColor;
+              ctx.beginPath();
+              ctx.moveTo(stall.x - 12, H*0.48);
+              ctx.lineTo(stall.x + stall.w + 12, H*0.48);
+              ctx.lineTo(stall.x + stall.w + 6, H*0.43);
+              ctx.lineTo(stall.x - 6, H*0.43);
+              ctx.closePath();
+              ctx.fill();
+              
+              // Awning stripes
+              ctx.fillStyle='rgba(255,255,255,0.25)';
+              for(let s=0; s<5; s++) {
+                ctx.fillRect(stall.x - 6 + s*26, H*0.43, 13, (H*0.48 - H*0.43));
+              }
+              
+              // Awning bottom edge shadow
+              ctx.fillStyle='rgba(0,0,0,0.4)';
+              ctx.fillRect(stall.x - 12, H*0.48, stall.w + 24, 3);
+              
+              // Counter with wood texture
+              const counterGrad = ctx.createLinearGradient(stall.x, H*0.53, stall.x, H*0.55);
+              counterGrad.addColorStop(0, '#6D4C41');
+              counterGrad.addColorStop(1, '#5D4037');
+              ctx.fillStyle = counterGrad;
+              ctx.fillRect(stall.x, H*0.53, stall.w, 18);
+              
+              // Counter top highlight
+              ctx.fillStyle='#8D6E63';
+              ctx.fillRect(stall.x, H*0.53, stall.w, 3);
+              
+              // Sign board
+              ctx.fillStyle='#FFF8E1';
+              ctx.fillRect(stall.x + 15, H*0.5, stall.w - 30, 22);
+              
+              // Sign border
+              ctx.strokeStyle='#4E342E';
+              ctx.lineWidth=2;
+              ctx.strokeRect(stall.x + 15, H*0.5, stall.w - 30, 22);
+              
+              // Sign text
+              ctx.fillStyle='#3E2723';
+              ctx.font = 'bold 14px Arial';
+              ctx.textAlign = 'center';
+              ctx.fillText(stall.name, stall.x + stall.w/2, H*0.5 + 15);
+            });
+            
+            // Realistic balloon cluster
+            const balloonClusters = [
+              {x:440, y:H*0.52, balloons:[
+                {dx:0, dy:0, color:'#EF5350', size:18},
+                {dx:20, dy:-8, color:'#FDD835', size:16},
+                {dx:40, dy:-5, color:'#42A5F5', size:17},
+                {dx:60, dy:-10, color:'#AB47BC', size:15},
+                {dx:80, dy:-3, color:'#66BB6A', size:16}
+              ]}
+            ];
+            
+            balloonClusters.forEach(cluster => {
+              cluster.balloons.forEach(b => {
+                const bx = cluster.x + b.dx;
+                const by = cluster.y + b.dy;
+                
+                // Balloon shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                ctx.beginPath();
+                ctx.ellipse(bx+2, by+2, b.size, b.size*1.3, 0, 0, Math.PI*2);
+                ctx.fill();
+                
+                // Balloon body
+                const balloonGrad = ctx.createRadialGradient(bx-5, by-5, 0, bx, by, b.size);
+                balloonGrad.addColorStop(0, lightenColor(b.color, 40));
+                balloonGrad.addColorStop(0.7, b.color);
+                balloonGrad.addColorStop(1, darkenColor(b.color, 20));
+                ctx.fillStyle = balloonGrad;
+                ctx.beginPath();
+                ctx.ellipse(bx, by, b.size, b.size*1.3, 0, 0, Math.PI*2);
+                ctx.fill();
+                
+                // Balloon highlight
+                ctx.fillStyle='rgba(255,255,255,0.5)';
+                ctx.beginPath();
+                ctx.ellipse(bx - 6, by - 8, b.size*0.3, b.size*0.4, 0, 0, Math.PI*2);
+                ctx.fill();
+                
+                // Balloon knot
+                ctx.fillStyle = darkenColor(b.color, 40);
+                ctx.beginPath();
+                ctx.ellipse(bx, by + b.size*1.3, 3, 5, 0, 0, Math.PI*2);
+                ctx.fill();
+                
+                // String
+                ctx.strokeStyle='rgba(100,100,100,0.7)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(bx, by + b.size*1.3 + 5);
+                ctx.quadraticCurveTo(bx - 8, by + b.size*1.8, bx - 5, by + 80);
+                ctx.stroke();
+              });
+            });
+            
+            // Ferris wheel silhouette in far background
+            ctx.strokeStyle='rgba(100,100,150,0.3)';
+            ctx.lineWidth=3;
+            ctx.beginPath();
+            ctx.arc(W-150, H*0.18, 60, 0, Math.PI*2);
+            ctx.stroke();
+            // Spokes
+            for(let i=0; i<8; i++) {
+              const angle = (i * Math.PI * 2) / 8;
+              ctx.beginPath();
+              ctx.moveTo(W-150, H*0.18);
+              ctx.lineTo(W-150 + Math.cos(angle)*60, H*0.18 + Math.sin(angle)*60);
+              ctx.stroke();
+            }
+            
+          } else { 
+            // Fallback for any undefined levels
+            ctx.fillStyle='#fde68a'; 
+            ctx.fillRect(0,0,W,H); 
+            ctx.fillStyle='#9ca3af'; 
+            ctx.fillRect(0,H-120,W,120); 
+            ctx.fillStyle='#cbd5e1'; 
+            ctx.fillRect(0,H-140,W,20); 
+          } 
+              
+              // Enhanced puddles - look like small ponds
+              puddles.forEach(p=>{ 
+                // Main water body with gradient
+                const waterGrad = ctx.createRadialGradient(p.x + p.w/2, p.y + p.h/2, 0, p.x + p.w/2, p.y + p.h/2, p.w/2);
+                waterGrad.addColorStop(0, '#A8DAFF');
+                waterGrad.addColorStop(0.6, '#7DD3FC');
+                waterGrad.addColorStop(1, '#60B5E8');
+                ctx.fillStyle = waterGrad;
+                ctx.beginPath(); 
+                ctx.roundRect(p.x, p.y, p.w, p.h, 14); 
+                ctx.fill();
+                
+                // Water ripples/highlights
+                ctx.strokeStyle='rgba(255, 255, 255, 0.4)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.ellipse(p.x + p.w*0.3, p.y + p.h*0.4, p.w*0.15, p.h*0.2, 0, 0, Math.PI*2);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.ellipse(p.x + p.w*0.65, p.y + p.h*0.55, p.w*0.12, p.h*0.18, 0, 0, Math.PI*2);
+                ctx.stroke();
+                
+                // Small grass patches near puddle
+                ctx.fillStyle = '#7EC850';
+                for(let i=0; i<3; i++) {
+                  const gx = p.x + (i+1) * (p.w / 4);
+                  const gy = p.y + p.h + 2;
+                  ctx.fillRect(gx - 1, gy, 2, 4);
+                  ctx.fillRect(gx - 3, gy + 2, 2, 3);
+                  ctx.fillRect(gx + 1, gy + 1, 2, 3);
+                }
+              }); 
+            }
+
+    function drawBin(b){ 
+      // Main bin body with gradient for 3D effect
+      const gradient = ctx.createLinearGradient(b.x, b.y, b.x + b.w, b.y);
+      const baseColor = COLORS.bin[b.name] || '#444';
+      gradient.addColorStop(0, baseColor);
+      gradient.addColorStop(0.5, lightenColor(baseColor, 20));
+      gradient.addColorStop(1, baseColor);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(b.x, b.y + 15, b.w, b.h - 15);
+      
+      // Shadow at bottom
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.fillRect(b.x, b.y + b.h - 8, b.w, 8);
+      
+      // Lid on top
+      ctx.fillStyle = darkenColor(baseColor, 15);
+      ctx.fillRect(b.x - 5, b.y, b.w + 10, 18);
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      ctx.fillRect(b.x - 5, b.y + 14, b.w + 10, 4);
+      
+      // Handle on lid
+      ctx.fillStyle = darkenColor(baseColor, 25);
+      ctx.fillRect(b.x + b.w/2 - 20, b.y + 3, 40, 8);
+      ctx.fillRect(b.x + b.w/2 - 3, b.y - 5, 6, 10);
+      
+      // Highlight effect
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      ctx.fillRect(b.x + 8, b.y + 25, 15, b.h - 45);
+      
+      // Label with background
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.font = 'bold 14px sans-serif';
+      const textWidth = ctx.measureText(b.name).width;
+      ctx.fillRect(b.x + b.w/2 - textWidth/2 - 8, b.y + b.h/2 - 15, textWidth + 16, 30);
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.fillText(b.name, b.x + b.w/2, b.y + b.h/2 + 5);
+      ctx.textAlign = 'left';
+    }
+    
+    function lightenColor(color, percent) {
+      const num = parseInt(color.replace("#",""), 16);
+      const amt = Math.round(2.55 * percent);
+      const R = Math.min(255, (num >> 16) + amt);
+      const G = Math.min(255, (num >> 8 & 0x00FF) + amt);
+      const B = Math.min(255, (num & 0x0000FF) + amt);
+      return "#" + (0x1000000 + R*0x10000 + G*0x100 + B).toString(16).slice(1);
+    }
+    
+    function darkenColor(color, percent) {
+      const num = parseInt(color.replace("#",""), 16);
+      const amt = Math.round(2.55 * percent);
+      const R = Math.max(0, (num >> 16) - amt);
+      const G = Math.max(0, (num >> 8 & 0x00FF) - amt);
+      const B = Math.max(0, (num & 0x0000FF) - amt);
+      return "#" + (0x1000000 + R*0x10000 + G*0x100 + B).toString(16).slice(1);
+    }
+    
+    function drawItem(it){ 
+      ctx.save();
+      // Scale factor to make items slightly bigger (10% smaller than before)
+      const scale = 1.17;
+      const centerX = it.x + it.w / 2;
+      const centerY = it.y + it.h / 2;
+      ctx.translate(centerX, centerY);
+      ctx.scale(scale, scale);
+      ctx.translate(-centerX, -centerY);
+      
+      switch(it.type) {
+        case 'plastic': // Plastic bottle
+          // Bottle body
+          ctx.fillStyle = '#4fc3f7';
+          ctx.fillRect(it.x + 12, it.y + 8, 16, 24);
+          // Bottle cap
+          ctx.fillStyle = '#1976d2';
+          ctx.fillRect(it.x + 10, it.y + 4, 20, 6);
+          // Highlight
+          ctx.fillStyle = 'rgba(255,255,255,0.5)';
+          ctx.fillRect(it.x + 14, it.y + 10, 4, 18);
+          // Label
+          ctx.fillStyle = '#0d47a1';
+          ctx.fillRect(it.x + 12, it.y + 18, 16, 8);
+          break;
+          
+        case 'paperItem': // Lined notebook paper with holes
+          // Paper base - white/cream color
+          ctx.fillStyle = '#fafafa';
+          ctx.beginPath();
+          ctx.moveTo(it.x + 6, it.y + 8);
+          ctx.lineTo(it.x + 30, it.y + 6);
+          ctx.lineTo(it.x + 33, it.y + 32);
+          ctx.lineTo(it.x + 10, it.y + 34);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Paper edge shadow
+          ctx.strokeStyle = '#e0e0e0';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(it.x + 6, it.y + 8);
+          ctx.lineTo(it.x + 30, it.y + 6);
+          ctx.lineTo(it.x + 33, it.y + 32);
+          ctx.lineTo(it.x + 10, it.y + 34);
+          ctx.closePath();
+          ctx.stroke();
+          
+          // Red vertical margin line
+          ctx.strokeStyle = '#ff6b6b';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(it.x + 12, it.y + 10);
+          ctx.lineTo(it.x + 13, it.y + 32);
+          ctx.stroke();
+          
+          // Blue horizontal lines (ruled paper)
+          ctx.strokeStyle = '#64b5f6';
+          ctx.lineWidth = 0.8;
+          for(let i = 0; i < 5; i++) {
+            const y = it.y + 12 + (i * 4);
+            ctx.beginPath();
+            ctx.moveTo(it.x + 8, y);
+            ctx.lineTo(it.x + 31, y - 1);
+            ctx.stroke();
+          }
+          
+          // Punch holes (3 holes on left side)
+          const holeY = [it.y + 12, it.y + 20, it.y + 28];
+          holeY.forEach(y => {
+            // Hole shadow/ring
+            ctx.fillStyle = '#d0d0d0';
+            ctx.beginPath();
+            ctx.arc(it.x + 9, y, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            // Hole center (white/empty)
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(it.x + 9, y, 1.8, 0, Math.PI * 2);
+            ctx.fill();
+            // Hole inner shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.15)';
+            ctx.beginPath();
+            ctx.arc(it.x + 9.3, y + 0.3, 1.3, 0, Math.PI * 2);
+            ctx.fill();
+          });
+          
+          // Crumple/wrinkle effects (since it's discarded paper)
+          ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(it.x + 18, it.y + 10);
+          ctx.quadraticCurveTo(it.x + 22, it.y + 18, it.x + 20, it.y + 28);
+          ctx.stroke();
+          
+          ctx.beginPath();
+          ctx.moveTo(it.x + 25, it.y + 12);
+          ctx.quadraticCurveTo(it.x + 23, it.y + 20, it.x + 26, it.y + 30);
+          ctx.stroke();
+          
+          // Corner fold/crease
+          ctx.fillStyle = 'rgba(0,0,0,0.05)';
+          ctx.beginPath();
+          ctx.moveTo(it.x + 28, it.y + 8);
+          ctx.lineTo(it.x + 30, it.y + 6);
+          ctx.lineTo(it.x + 26, it.y + 10);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Paper texture (slight variations)
+          ctx.fillStyle = 'rgba(240,240,240,0.3)';
+          ctx.fillRect(it.x + 14, it.y + 15, 12, 3);
+          ctx.fillRect(it.x + 15, it.y + 22, 10, 2);
+          break;
+          
+        case 'glassItem': // Glass bottle
+          // Bottle body with transparency effect
+          const glassGrad = ctx.createLinearGradient(it.x, it.y, it.x + it.w, it.y);
+          glassGrad.addColorStop(0, '#80deea');
+          glassGrad.addColorStop(0.3, '#b2ebf2');
+          glassGrad.addColorStop(0.7, '#80deea');
+          glassGrad.addColorStop(1, '#4dd0e1');
+          ctx.fillStyle = glassGrad;
+          ctx.fillRect(it.x + 10, it.y + 6, 20, 28);
+          // Bottle neck
+          ctx.fillStyle = '#26c6da';
+          ctx.fillRect(it.x + 14, it.y + 2, 12, 6);
+          // Highlights for glass effect
+          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          ctx.fillRect(it.x + 12, it.y + 8, 6, 22);
+          ctx.fillRect(it.x + 22, it.y + 12, 3, 18);
+          break;
+          
+        case 'banana': // Realistic Cavendish banana (like photo)
+          // Banana body - bright yellow with smooth gradient
+          const bananaGrad = ctx.createLinearGradient(it.x + 12, it.y + 10, it.x + 28, it.y + 30);
+          bananaGrad.addColorStop(0, '#ffed4e');
+          bananaGrad.addColorStop(0.4, '#ffe135');
+          bananaGrad.addColorStop(0.7, '#ffd633');
+          bananaGrad.addColorStop(1, '#f4c430');
+          ctx.fillStyle = bananaGrad;
+          
+          // Draw smooth curved banana body
+          ctx.beginPath();
+          ctx.moveTo(it.x + 22, it.y + 4);
+          // Top curve
+          ctx.bezierCurveTo(it.x + 16, it.y + 6, it.x + 11, it.y + 12, it.x + 10, it.y + 18);
+          // Left side curve
+          ctx.bezierCurveTo(it.x + 9, it.y + 24, it.x + 12, it.y + 30, it.x + 18, it.y + 33);
+          // Bottom
+          ctx.lineTo(it.x + 24, it.y + 32);
+          // Right side curve
+          ctx.bezierCurveTo(it.x + 30, it.y + 29, it.x + 32, it.y + 23, it.x + 31, it.y + 17);
+          // Top right
+          ctx.bezierCurveTo(it.x + 30, it.y + 11, it.x + 27, it.y + 6, it.x + 22, it.y + 4);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Main ridge line (darker)
+          ctx.strokeStyle = '#d4af37';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(it.x + 21, it.y + 5);
+          ctx.bezierCurveTo(it.x + 14, it.y + 9, it.x + 11, it.y + 16, it.x + 11, it.y + 23);
+          ctx.bezierCurveTo(it.x + 11, it.y + 28, it.x + 14, it.y + 31, it.x + 19, it.y + 32);
+          ctx.stroke();
+          
+          // Secondary ridge
+          ctx.strokeStyle = '#e6c34a';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(it.x + 24, it.y + 6);
+          ctx.bezierCurveTo(it.x + 29, it.y + 11, it.x + 30, it.y + 19, it.x + 28, it.y + 27);
+          ctx.stroke();
+          
+          // Minimal brown spots (ripe but fresh)
+          ctx.fillStyle = 'rgba(139,105,20,0.5)';
+          // Small spot 1
+          ctx.beginPath();
+          ctx.ellipse(it.x + 17, it.y + 15, 1.5, 1, Math.PI / 6, 0, Math.PI * 2);
+          ctx.fill();
+          // Small spot 2
+          ctx.beginPath();
+          ctx.ellipse(it.x + 23, it.y + 19, 1.2, 0.8, -Math.PI / 4, 0, Math.PI * 2);
+          ctx.fill();
+          // Tiny spot 3
+          ctx.beginPath();
+          ctx.arc(it.x + 20, it.y + 25, 0.8, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Stem end (green/brown tip at top)
+          ctx.fillStyle = '#8b7355';
+          ctx.beginPath();
+          ctx.ellipse(it.x + 22, it.y + 4, 2, 1.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#6b5a45';
+          ctx.beginPath();
+          ctx.ellipse(it.x + 22, it.y + 4, 1, 0.8, 0, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Bottom tip (where banana tapers)
+          ctx.fillStyle = '#7a6841';
+          ctx.beginPath();
+          ctx.ellipse(it.x + 21, it.y + 32.5, 2, 1, Math.PI / 4, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Bright highlight (where light hits - left side)
+          ctx.fillStyle = 'rgba(255,255,230,0.6)';
+          ctx.beginPath();
+          ctx.ellipse(it.x + 15, it.y + 14, 4, 8, Math.PI / 8, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Smaller bright highlight
+          ctx.fillStyle = 'rgba(255,255,240,0.4)';
+          ctx.beginPath();
+          ctx.ellipse(it.x + 16, it.y + 22, 3, 5, Math.PI / 6, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Shadow side (right edge darker)
+          ctx.fillStyle = 'rgba(180,140,40,0.25)';
+          ctx.beginPath();
+          ctx.moveTo(it.x + 27, it.y + 8);
+          ctx.bezierCurveTo(it.x + 30, it.y + 15, it.x + 29, it.y + 24, it.x + 25, it.y + 30);
+          ctx.bezierCurveTo(it.x + 28, it.y + 26, it.x + 29, it.y + 18, it.x + 28, it.y + 12);
+          ctx.closePath();
+          ctx.fill();
+          break;
+          
+        case 'wrapper': // Red and white striped candy in twisted cellophane wrapper
+          // Transparent cellophane wrapper (twisted ends)
+          ctx.fillStyle = 'rgba(200, 220, 255, 0.3)';
+          ctx.beginPath();
+          // Main wrapper body
+          ctx.ellipse(it.x + 20, it.y + 20, 14, 10, 0, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Left twisted end
+          ctx.beginPath();
+          ctx.moveTo(it.x + 6, it.y + 20);
+          ctx.quadraticCurveTo(it.x + 4, it.y + 16, it.x + 2, it.y + 18);
+          ctx.quadraticCurveTo(it.x + 3, it.y + 22, it.x + 6, it.y + 20);
+          ctx.fill();
+          
+          // Right twisted end
+          ctx.beginPath();
+          ctx.moveTo(it.x + 34, it.y + 20);
+          ctx.quadraticCurveTo(it.x + 36, it.y + 16, it.x + 38, it.y + 18);
+          ctx.quadraticCurveTo(it.x + 37, it.y + 22, it.x + 34, it.y + 20);
+          ctx.fill();
+          
+          // Cellophane highlights and creases
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(it.x + 6, it.y + 18);
+          ctx.lineTo(it.x + 34, it.y + 18);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(it.x + 6, it.y + 22);
+          ctx.lineTo(it.x + 34, it.y + 22);
+          ctx.stroke();
+          
+          // Red and white striped candy inside wrapper
+          const stripeWidth = 3;
+          for(let i = 0; i < 7; i++) {
+            ctx.fillStyle = i % 2 === 0 ? '#e53935' : '#ffffff';
+            ctx.beginPath();
+            const startAngle = (i * Math.PI) / 7;
+            const endAngle = ((i + 1) * Math.PI) / 7;
+            ctx.arc(it.x + 20, it.y + 20, 10, startAngle, endAngle);
+            ctx.lineTo(it.x + 20, it.y + 20);
+            ctx.closePath();
+            ctx.fill();
+          }
+          
+          // Add spiral effect to candy (twisted stripes)
+          for(let i = 0; i < 7; i++) {
+            ctx.fillStyle = i % 2 === 0 ? '#c62828' : '#f5f5f5';
+            ctx.beginPath();
+            const startAngle = (i * Math.PI) / 7 - Math.PI;
+            const endAngle = ((i + 1) * Math.PI) / 7 - Math.PI;
+            ctx.arc(it.x + 20, it.y + 20, 10, startAngle, endAngle);
+            ctx.lineTo(it.x + 20, it.y + 20);
+            ctx.closePath();
+            ctx.fill();
+          }
+          
+          // Candy center circle (peppermint center)
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(it.x + 20, it.y + 20, 3, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Cellophane shine overlays
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+          ctx.beginPath();
+          ctx.ellipse(it.x + 16, it.y + 16, 6, 4, -Math.PI / 4, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+          ctx.beginPath();
+          ctx.ellipse(it.x + 24, it.y + 22, 5, 3, Math.PI / 6, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Wrapper edge outline
+          ctx.strokeStyle = 'rgba(150, 180, 220, 0.6)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.ellipse(it.x + 20, it.y + 20, 14, 10, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          
+          // Twisted end details (wrinkles in cellophane)
+          ctx.strokeStyle = 'rgba(180, 200, 230, 0.5)';
+          ctx.lineWidth = 0.8;
+          // Left end wrinkles
+          for(let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(it.x + 6 - i, it.y + 18 + i);
+            ctx.lineTo(it.x + 3 - i, it.y + 20);
+            ctx.stroke();
+          }
+          // Right end wrinkles
+          for(let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(it.x + 34 + i, it.y + 18 + i);
+            ctx.lineTo(it.x + 37 + i, it.y + 20);
+            ctx.stroke();
+          }
+          
+          // Shadow under candy
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+          ctx.beginPath();
+          ctx.ellipse(it.x + 20, it.y + 28, 12, 3, 0, 0, Math.PI * 2);
+          ctx.fill();
+          break;
+          // Base wrapper - rich brown chocolate foil
+          const wrapperGrad = ctx.createRadialGradient(it.x + 20, it.y + 20, 5, it.x + 20, it.y + 20, 20);
+          wrapperGrad.addColorStop(0, '#6d4c41');
+          wrapperGrad.addColorStop(0.5, '#5d4037');
+          wrapperGrad.addColorStop(1, '#3e2723');
+          ctx.fillStyle = wrapperGrad;
+          
+          // Irregular crumpled wrapper shape (like partially unwrapped)
+          ctx.beginPath();
+          ctx.moveTo(it.x + 4, it.y + 15);
+          ctx.lineTo(it.x + 10, it.y + 8);
+          ctx.lineTo(it.x + 18, it.y + 10);
+          ctx.lineTo(it.x + 25, it.y + 6);
+          ctx.lineTo(it.x + 32, it.y + 9);
+          ctx.lineTo(it.x + 36, it.y + 14);
+          ctx.lineTo(it.x + 35, it.y + 22);
+          ctx.lineTo(it.x + 32, it.y + 30);
+          ctx.lineTo(it.x + 25, it.y + 33);
+          ctx.lineTo(it.x + 16, it.y + 34);
+          ctx.lineTo(it.x + 8, it.y + 30);
+          ctx.lineTo(it.x + 3, it.y + 24);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Inner silver/aluminum foil showing through (partially unwrapped effect)
+          ctx.fillStyle = '#c0c0c0';
+          ctx.beginPath();
+          ctx.moveTo(it.x + 6, it.y + 16);
+          ctx.lineTo(it.x + 12, it.y + 12);
+          ctx.lineTo(it.x + 16, it.y + 14);
+          ctx.lineTo(it.x + 14, it.y + 22);
+          ctx.lineTo(it.x + 8, it.y + 24);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Silver foil shine
+          ctx.fillStyle = '#e8e8e8';
+          ctx.beginPath();
+          ctx.moveTo(it.x + 10, it.y + 14);
+          ctx.lineTo(it.x + 13, it.y + 13);
+          ctx.lineTo(it.x + 13, it.y + 20);
+          ctx.lineTo(it.x + 10, it.y + 20);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Blue band across wrapper (signature chocolate brand color)
+          const blueStripe = ctx.createLinearGradient(it.x + 8, it.y + 18, it.x + 32, it.y + 18);
+          blueStripe.addColorStop(0, '#0d47a1');
+          blueStripe.addColorStop(0.5, '#1976d2');
+          blueStripe.addColorStop(1, '#0d47a1');
+          ctx.fillStyle = blueStripe;
+          ctx.beginPath();
+          ctx.moveTo(it.x + 16, it.y + 16);
+          ctx.lineTo(it.x + 34, it.y + 15);
+          ctx.lineTo(it.x + 33, it.y + 21);
+          ctx.lineTo(it.x + 16, it.y + 22);
+          ctx.closePath();
+          ctx.fill();
+          
+          // White label area
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.moveTo(it.x + 17, it.y + 17);
+          ctx.lineTo(it.x + 32, it.y + 16);
+          ctx.lineTo(it.x + 32, it.y + 20);
+          ctx.lineTo(it.x + 17, it.y + 21);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Brand text - "CHOCOLATE"
+          ctx.fillStyle = '#3e2723';
+          ctx.font = 'bold 7px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText('CHOCOLATE', it.x + 24.5, it.y + 19.5);
+          ctx.textAlign = 'left';
+          
+          // Gold decorative trim
+          ctx.strokeStyle = '#ffd700';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(it.x + 17, it.y + 17);
+          ctx.lineTo(it.x + 32, it.y + 16);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(it.x + 17, it.y + 21);
+          ctx.lineTo(it.x + 32, it.y + 20);
+          ctx.stroke();
+          
+          // Brown wrapper metallic highlights
+          ctx.fillStyle = 'rgba(121,85,72,0.6)';
+          ctx.beginPath();
+          ctx.moveTo(it.x + 22, it.y + 10);
+          ctx.lineTo(it.x + 26, it.y + 9);
+          ctx.lineTo(it.x + 25, it.y + 28);
+          ctx.lineTo(it.x + 21, it.y + 29);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Bright metallic shine (foil effect)
+          ctx.fillStyle = 'rgba(255,255,255,0.3)';
+          ctx.beginPath();
+          ctx.moveTo(it.x + 28, it.y + 12);
+          ctx.lineTo(it.x + 30, it.y + 11);
+          ctx.lineTo(it.x + 29, it.y + 26);
+          ctx.lineTo(it.x + 27, it.y + 27);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Crease/fold lines (realistic crumpling)
+          ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(it.x + 12, it.y + 10);
+          ctx.lineTo(it.x + 10, it.y + 28);
+          ctx.stroke();
+          
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(it.x + 18, it.y + 11);
+          ctx.lineTo(it.x + 18, it.y + 32);
+          ctx.stroke();
+          
+          ctx.beginPath();
+          ctx.moveTo(it.x + 30, it.y + 10);
+          ctx.lineTo(it.x + 28, it.y + 30);
+          ctx.stroke();
+          
+          // Shadow for 3D depth
+          ctx.fillStyle = 'rgba(0,0,0,0.4)';
+          ctx.beginPath();
+          ctx.moveTo(it.x + 3, it.y + 24);
+          ctx.lineTo(it.x + 8, it.y + 30);
+          ctx.lineTo(it.x + 16, it.y + 34);
+          ctx.lineTo(it.x + 16, it.y + 30);
+          ctx.lineTo(it.x + 8, it.y + 27);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Torn edge effect (where wrapper is opened)
+          ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+          ctx.lineWidth = 1;
+          for(let i = 0; i < 5; i++) {
+            ctx.beginPath();
+            ctx.moveTo(it.x + 8 + i * 2, it.y + 24 + (i % 2));
+            ctx.lineTo(it.x + 8 + i * 2, it.y + 25 + (i % 2));
+            ctx.stroke();
+          }
+          break;
+          ctx.lineTo(it.x + 30, it.y + 13);
+          ctx.lineTo(it.x + 32, it.y + 24);
+          ctx.lineTo(it.x + 28, it.y + 26);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Gold/orange accent stripe
+          ctx.fillStyle = '#ff6f00';
+          ctx.beginPath();
+          ctx.moveTo(it.x + 8, it.y + 18);
+          ctx.lineTo(it.x + 32, it.y + 16);
+          ctx.lineTo(it.x + 32, it.y + 22);
+          ctx.lineTo(it.x + 8, it.y + 24);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Brand text
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 9px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('CHOCO', it.x + 20, it.y + 22);
+          ctx.textAlign = 'left';
+          
+          // Wrinkle lines for realism
+          ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(it.x + 10, it.y + 12);
+          ctx.lineTo(it.x + 12, it.y + 28);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(it.x + 20, it.y + 10);
+          ctx.lineTo(it.x + 18, it.y + 30);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(it.x + 28, it.y + 12);
+          ctx.lineTo(it.x + 26, it.y + 28);
+          ctx.stroke();
+          
+          // Shadow on wrapper
+          ctx.fillStyle = 'rgba(0,0,0,0.2)';
+          ctx.beginPath();
+          ctx.moveTo(it.x + 4, it.y + 24);
+          ctx.lineTo(it.x + 10, it.y + 30);
+          ctx.lineTo(it.x + 18, it.y + 32);
+          ctx.lineTo(it.x + 18, it.y + 28);
+          ctx.lineTo(it.x + 10, it.y + 26);
+          ctx.closePath();
+          ctx.fill();
+          break;
+          
+        case 'can': // Realistic Metal Aluminum Can
+          // Can body - cylindrical shape with metallic gradient
+          const canBodyGrad = ctx.createLinearGradient(it.x + 8, it.y, it.x + 32, it.y);
+          canBodyGrad.addColorStop(0, '#8a8a8a');
+          canBodyGrad.addColorStop(0.15, '#d4d4d4');
+          canBodyGrad.addColorStop(0.3, '#ffffff');
+          canBodyGrad.addColorStop(0.5, '#e8e8e8');
+          canBodyGrad.addColorStop(0.7, '#b8b8b8');
+          canBodyGrad.addColorStop(0.85, '#d4d4d4');
+          canBodyGrad.addColorStop(1, '#8a8a8a');
+          ctx.fillStyle = canBodyGrad;
+          ctx.fillRect(it.x + 10, it.y + 8, 20, 24);
+          
+          // Top rim (slightly wider)
+          const topRimGrad = ctx.createRadialGradient(it.x + 20, it.y + 6, 0, it.x + 20, it.y + 6, 14);
+          topRimGrad.addColorStop(0, '#a0a0a0');
+          topRimGrad.addColorStop(0.6, '#d0d0d0');
+          topRimGrad.addColorStop(1, '#707070');
+          ctx.fillStyle = topRimGrad;
+          ctx.beginPath();
+          ctx.ellipse(it.x + 20, it.y + 6, 12, 4, 0, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Top rim highlight
+          ctx.fillStyle = 'rgba(255,255,255,0.5)';
+          ctx.beginPath();
+          ctx.ellipse(it.x + 20, it.y + 5, 10, 2.5, 0, Math.PI, Math.PI * 2);
+          ctx.fill();
+          
+          // Bottom rim
+          const bottomRimGrad = ctx.createRadialGradient(it.x + 20, it.y + 32, 0, it.x + 20, it.y + 32, 14);
+          bottomRimGrad.addColorStop(0, '#a0a0a0');
+          bottomRimGrad.addColorStop(0.6, '#c0c0c0');
+          bottomRimGrad.addColorStop(1, '#707070');
+          ctx.fillStyle = bottomRimGrad;
+          ctx.beginPath();
+          ctx.ellipse(it.x + 20, it.y + 32, 12, 4, 0, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Bottom rim shadow
+          ctx.fillStyle = 'rgba(0,0,0,0.3)';
+          ctx.beginPath();
+          ctx.ellipse(it.x + 20, it.y + 33, 10, 2, 0, 0, Math.PI);
+          ctx.fill();
+          
+          // Bright metallic highlight (left side - cylindrical reflection)
+          ctx.fillStyle = 'rgba(255,255,255,0.7)';
+          ctx.fillRect(it.x + 12, it.y + 10, 5, 20);
+          
+          // Secondary highlight
+          ctx.fillStyle = 'rgba(255,255,255,0.4)';
+          ctx.fillRect(it.x + 18, it.y + 10, 2, 20);
+          
+          // Shadow side (right edge)
+          ctx.fillStyle = 'rgba(0,0,0,0.2)';
+          ctx.fillRect(it.x + 26, it.y + 10, 3, 20);
+          
+          // Label band - red/blue gradient
+          const labelGrad = ctx.createLinearGradient(it.x + 10, it.y + 16, it.x + 10, it.y + 24);
+          labelGrad.addColorStop(0, '#d32f2f');
+          labelGrad.addColorStop(0.5, '#e53935');
+          labelGrad.addColorStop(1, '#c62828');
+          ctx.fillStyle = labelGrad;
+          ctx.fillRect(it.x + 10, it.y + 16, 20, 8);
+          
+          // Label text
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 6px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText('SODA', it.x + 20, it.y + 21);
+          ctx.textAlign = 'left';
+          
+          // Label shine
+          ctx.fillStyle = 'rgba(255,255,255,0.3)';
+          ctx.fillRect(it.x + 12, it.y + 17, 4, 6);
+          
+          // Ridges (top and bottom of can body)
+          ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(it.x + 10, it.y + 10);
+          ctx.lineTo(it.x + 30, it.y + 10);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(it.x + 10, it.y + 30);
+          ctx.lineTo(it.x + 30, it.y + 30);
+          ctx.stroke();
+          
+          // Pull tab on top (soda can tab)
+          ctx.fillStyle = '#b0b0b0';
+          ctx.beginPath();
+          ctx.ellipse(it.x + 22, it.y + 5, 3, 1.5, Math.PI / 6, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Tab highlight
+          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          ctx.beginPath();
+          ctx.ellipse(it.x + 22, it.y + 4.5, 1.5, 0.8, Math.PI / 6, 0, Math.PI * 2);
+          ctx.fill();
+          break;
+          
+        default: // Fallback for any other items
+          ctx.fillStyle = COLORS.item[it.type] || '#bbb';
+          ctx.fillRect(it.x, it.y, it.w, it.h);
+          ctx.fillStyle = '#111';
+          ctx.font = '12px sans-serif';
+          ctx.fillText(it.label || it.type, it.x + 6, it.y + 22);
+      }
+      
+      ctx.restore();
+    }
+
+    // Avatar drawing functions
+    function drawBoyAvatar(ctx, px, py, scale = 1) {
+      ctx.save();
+      const centerX = px + 35;
+      const centerY = py + 35;
+      ctx.translate(centerX, centerY);
+      ctx.scale(scale, scale);
+      ctx.translate(-20, -20);
+      
+      ctx.fillStyle = '#4CAF50'; ctx.fillRect(8, 18, 24, 16);
+      ctx.fillStyle = '#ffcc99'; ctx.fillRect(4, 20, 6, 12); ctx.fillRect(30, 20, 6, 12);
+      ctx.fillStyle = '#1976d2'; ctx.fillRect(10, 32, 8, 8); ctx.fillRect(22, 32, 8, 8);
+      ctx.fillStyle = '#ffcc99'; ctx.beginPath(); ctx.arc(20, 10, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#5d4037'; ctx.beginPath(); ctx.arc(20, 7, 9, Math.PI, Math.PI * 2); ctx.fill(); ctx.fillRect(11, 5, 18, 8);
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(16, 10, 1.5, 0, Math.PI * 2); ctx.arc(24, 10, 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(20, 12, 3, 0, Math.PI); ctx.stroke();
+      ctx.fillStyle = '#424242'; ctx.fillRect(10, 38, 8, 2); ctx.fillRect(22, 38, 8, 2);
+      ctx.restore();
+    }
+    
+    function drawGirlAvatar(ctx, px, py, scale = 1) {
+      ctx.save();
+      const centerX = px + 35;
+      const centerY = py + 35;
+      ctx.translate(centerX, centerY);
+      ctx.scale(scale, scale);
+      ctx.translate(-20, -20);
+      
+      ctx.fillStyle = '#E91E63'; ctx.fillRect(8, 18, 24, 16);
+      ctx.fillStyle = '#ffcc99'; ctx.fillRect(4, 20, 6, 12); ctx.fillRect(30, 20, 6, 12);
+      ctx.fillStyle = '#9C27B0'; ctx.fillRect(10, 32, 8, 8); ctx.fillRect(22, 32, 8, 8);
+      ctx.fillStyle = '#ffcc99'; ctx.beginPath(); ctx.arc(20, 10, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#3E2723'; ctx.beginPath(); ctx.arc(20, 7, 9, Math.PI, Math.PI * 2); ctx.fill(); ctx.fillRect(11, 5, 18, 8);
+      ctx.fillStyle = '#FF69B4'; ctx.beginPath(); ctx.arc(14, 6, 3, 0, Math.PI * 2); ctx.arc(26, 6, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(16, 10, 1.5, 0, Math.PI * 2); ctx.arc(24, 10, 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(20, 12, 3, 0, Math.PI); ctx.stroke();
+      ctx.fillStyle = '#F50057'; ctx.fillRect(10, 38, 8, 2); ctx.fillRect(22, 38, 8, 2);
+      ctx.restore();
+    }
+    
+    function drawRobotAvatar(ctx, px, py, scale = 1) {
+      ctx.save();
+      const centerX = px + 35;
+      const centerY = py + 35;
+      ctx.translate(centerX, centerY);
+      ctx.scale(scale, scale);
+      ctx.translate(-20, -20);
+      
+      ctx.fillStyle = '#607D8B'; ctx.fillRect(8, 18, 24, 16);
+      ctx.fillStyle = '#455A64'; ctx.fillRect(4, 20, 6, 12); ctx.fillRect(30, 20, 6, 12);
+      ctx.fillStyle = '#546E7A'; ctx.fillRect(10, 32, 8, 8); ctx.fillRect(22, 32, 8, 8);
+      ctx.fillStyle = '#78909C'; ctx.fillRect(11, 5, 18, 14);
+      ctx.fillStyle = '#00E676'; ctx.fillRect(14, 8, 4, 4); ctx.fillRect(22, 8, 4, 4);
+      ctx.fillStyle = '#FF5722'; ctx.fillRect(15, 14, 10, 2);
+      ctx.fillStyle = '#37474F'; ctx.fillRect(10, 38, 8, 2); ctx.fillRect(22, 38, 8, 2);
+      ctx.fillStyle = '#FFD600'; ctx.beginPath(); ctx.arc(20, 3, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    
+    function drawCatAvatar(ctx, px, py, scale = 1) {
+      ctx.save();
+      const centerX = px + 35;
+      const centerY = py + 35;
+      ctx.translate(centerX, centerY);
+      ctx.scale(scale, scale);
+      ctx.translate(-20, -20);
+      
+      ctx.fillStyle = '#FF9800'; ctx.fillRect(10, 20, 20, 20);
+      ctx.fillStyle = '#FF9800'; ctx.beginPath(); ctx.arc(20, 12, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#FF9800'; ctx.beginPath(); ctx.moveTo(12, 8); ctx.lineTo(10, 2); ctx.lineTo(16, 8); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(28, 8); ctx.lineTo(30, 2); ctx.lineTo(24, 8); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(16, 12, 1.5, 0, Math.PI * 2); ctx.arc(24, 12, 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#FFB74D'; ctx.beginPath(); ctx.arc(20, 15, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#5D4037'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(20, 15); ctx.lineTo(20, 17); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(20, 17); ctx.lineTo(16, 19); ctx.moveTo(20, 17); ctx.lineTo(24, 19); ctx.stroke();
+      ctx.fillStyle = '#F57C00'; ctx.fillRect(8, 38, 12, 2); ctx.fillRect(20, 38, 12, 2);
+      ctx.restore();
+    }
+    
+    function drawDogAvatar(ctx, px, py, scale = 1) {
+      ctx.save();
+      const centerX = px + 35;
+      const centerY = py + 35;
+      ctx.translate(centerX, centerY);
+      ctx.scale(scale, scale);
+      ctx.translate(-20, -20);
+      
+      ctx.fillStyle = '#8D6E63'; ctx.fillRect(10, 20, 20, 20);
+      ctx.fillStyle = '#8D6E63'; ctx.beginPath(); ctx.arc(20, 12, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#8D6E63'; ctx.beginPath(); ctx.ellipse(12, 10, 4, 6, -0.3, 0, Math.PI * 2); ctx.ellipse(28, 10, 4, 6, 0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(16, 12, 1.5, 0, Math.PI * 2); ctx.arc(24, 12, 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#5D4037'; ctx.beginPath(); ctx.arc(20, 15, 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(20, 16, 3, 0, Math.PI); ctx.stroke();
+      ctx.fillStyle = '#6D4C41'; ctx.fillRect(8, 38, 12, 2); ctx.fillRect(20, 38, 12, 2);
+      ctx.restore();
+    }
+    
+    function drawAlienAvatar(ctx, px, py, scale = 1) {
+      ctx.save();
+      const centerX = px + 35;
+      const centerY = py + 35;
+      ctx.translate(centerX, centerY);
+      ctx.scale(scale, scale);
+      ctx.translate(-20, -20);
+      
+      ctx.fillStyle = '#76FF03'; ctx.beginPath(); ctx.ellipse(20, 14, 12, 14, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#76FF03'; ctx.fillRect(10, 20, 20, 16);
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(15, 12, 4, 5, 0, 0, Math.PI * 2); ctx.ellipse(25, 12, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.arc(16, 11, 1.5, 0, Math.PI * 2); ctx.arc(26, 11, 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(16, 18); ctx.lineTo(24, 18); ctx.stroke();
+      ctx.fillStyle = '#558B2F'; ctx.beginPath(); ctx.ellipse(14, 6, 3, 5, -0.3, 0, Math.PI * 2); ctx.ellipse(26, 6, 3, 5, 0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#689F38'; ctx.fillRect(8, 34, 10, 6); ctx.fillRect(22, 34, 10, 6);
+      ctx.restore();
+    }
+    
+    function drawPlayer() {
+      const px = player.x;
+      const py = player.y;
+      const scale = 1.5; // 50% bigger
+      
+      // Draw selected avatar
+      switch(selectedAvatar) {
+        case 'boy': drawBoyAvatar(ctx, px, py, scale); break;
+        case 'girl': drawGirlAvatar(ctx, px, py, scale); break;
+        case 'robot': drawRobotAvatar(ctx, px, py, scale); break;
+        case 'cat': drawCatAvatar(ctx, px, py, scale); break;
+        case 'dog': drawDogAvatar(ctx, px, py, scale); break;
+        case 'alien': drawAlienAvatar(ctx, px, py, scale); break;
+        default: drawBoyAvatar(ctx, px, py, scale);
+      }
+    }
+
+    function draw(){ 
+      if (!currentLevel || !Levels[currentLevel]) return;
+      drawBackground(); 
+      bins.forEach(drawBin); 
+      litter.forEach(drawItem); 
+      drawPlayer();
+      if(player.carrying){ drawItem({ ...player.carrying, x: player.x+player.w+6, y: player.y-10, w: 28, h: 28 }); } 
+      if(Levels[currentLevel].hints){ ctx.fillStyle='rgba(15,23,42,0.7)'; ctx.fillRect(12,12,320,70); ctx.fillStyle='#fff'; ctx.font='14px sans-serif'; ctx.fillText('Tip: Paper, Glass, Plastic → Recycle',24,36); ctx.fillText('Banana → Organic | Wrapper → Landfill',24,58); } 
+      if(!playing){ 
+        ctx.fillStyle='rgba(15,23,42,0.6)'; 
+        ctx.fillRect(W/2-220,H/2-80,440,160); 
+        ctx.fillStyle='#fff'; ctx.font='20px sans-serif'; ctx.textAlign='center'; 
+        ctx.fillText(endMessage || 'Paused',W/2,H/2); // Add fallback text
+        ctx.textAlign='left'; 
+      } 
+    }
+
+    function spawnLitter(n=1,itemSet=itemTypesBasic){ for(let i=0;i<n;i++){ const t=itemSet[Math.floor(Math.random()*itemSet.length)]; litter.push({ x:120+Math.random()*(W-360), y:80+Math.random()*(H-240), w:40, h:40, type:t.key, bin:t.bin, label:t.label }); } dbgLitter.textContent = String(litter.length); }
+
+    function setupBins(){ 
+      if(currentLevel===4){ 
+        // Bottom right: Three basic bins aligned in a row
+        const binY = H - 140;
+        const binSize = 96;
+        bins=[ 
+          {name:'Recycle',x:W-320,y:binY,w:binSize,h:binSize}, 
+          {name:'Organic',x:W-210,y:binY,w:binSize,h:binSize}, 
+          {name:'Landfill',x:W-100,y:binY,w:binSize,h:binSize}, 
+          // Top row: Three additional bins for boss level
+          {name:'Glass',x:60,y:20,w:binSize,h:binSize}, 
+          {name:'Paper',x:180,y:20,w:binSize,h:binSize}, 
+          {name:'Metal',x:300,y:20,w:binSize,h:binSize} 
+        ]; 
+      } else { 
+        // All three bins in a row at the same height (bottom right)
+        const binY = H - 140; // Same Y position for all
+        const binSize = 96;
+        bins=[ 
+          {name:'Recycle',x:W-320,y:binY,w:binSize,h:binSize}, 
+          {name:'Organic',x:W-210,y:binY,w:binSize,h:binSize}, 
+          {name:'Landfill',x:W-100,y:binY,w:binSize,h:binSize} 
+        ]; 
+      } 
+    }
+
+    function setHUD(){   
+    if (!currentLevel || !Levels[currentLevel]) {
+      hudLevel.textContent = 'Level: —';
+      hudScore.textContent = 'Score: 0';
+      hudTime.textContent  = 'Time: —';
+      hudItems.textContent = 'Items left: —';
+      return;
+    }
+      hudLevel.textContent=`Level: ${currentLevel} — ${Levels[currentLevel].name}`; hudScore.textContent=`Score: ${score}`; hudTime.textContent=`Time: ${timeLeft}`; hudItems.textContent=`Items left: ${itemsRemaining}`; }
+
+    function startLevel(level){ 
+      currentLevel=level; 
+      mode='play'; 
+      playing=true; 
+      score=0; 
+      timeLeft=Levels[level].time; 
+      itemsRemaining=Levels[level].items; 
+      litter=[]; 
+      player.x=80; player.y=H-120; player.carrying=null; 
+      setupBins(); 
+      puddles=Levels[level].puddles||[]; 
+      resetBadges(); 
+      setHUD(); 
+      overlay.style.display='none'; 
+      menuPane.style.display='none'; 
+      endPane.style.display='none'; // show a start prompt
+      startLevelBtn.disabled = false; 
+      startLevelBtn.textContent = 'Start Level';
+      dbgLitter.textContent = '0';
+      
+      if (level === 4) { 
+        processed=0; 
+        spawnRate=800; 
+        spawnerActive=true; 
+        spawnLitter(12, itemTypesBoss); 
+        scheduleSpawn(); 
+      } else { 
+        spawnLitter(itemsRemaining, itemTypesBasic); 
+      }
+
+      canvas.focus();
+    }
+
+    startLevelBtn.addEventListener('click', ()=>{
+      playing = true; overlay.style.display='none';
+      if(currentLevel===4){ processed=0; spawnRate=1200; spawnerActive=true; spawnLitter(12,itemTypesBoss); scheduleSpawn(); } else { spawnLitter(itemsRemaining,itemTypesBasic); }
+      canvas.focus();
+    });
+
+    function scheduleSpawn(){ if(currentLevel!==4) return; if(!spawnerActive) return; setTimeout(()=>{ if(playing){ spawnLitter(1,itemTypesBoss); if(Math.random()<0.4) spawnLitter(1,itemTypesBoss); if(Math.random()<0.2) spawnLitter(1,itemTypesBoss); if(litter.length>maxOnGround){ score=Math.max(0,score-10); } } spawnRate=Math.max(500,spawnRate-20); scheduleSpawn(); }, spawnRate); }
+
+    function update(){ 
+      if(mode!=='play'||!playing) return; 
+      player.speed=playerDefaultSpeed; 
+      puddles.forEach(p=>{ if(rectsOverlap(player,p)) player.speed=Math.max(2,player.speed-2); }); 
+      if(keys['ArrowLeft'])  player.x-=player.speed; 
+      if(keys['ArrowRight']) player.x+=player.speed; 
+      if(keys['ArrowUp'])    player.y-=player.speed; 
+      if(keys['ArrowDown'])  player.y+=player.speed; 
+      player.x=Math.max(0,Math.min(W-player.w,player.x)); 
+      player.y=Math.max(0,Math.min(H-player.h,player.y)); 
+      if(keys['Space']){
+        if(!player._spaceDown){ 
+          player._spaceDown=true; 
+          if(!player.carrying){ 
+            const target=litter.find(it=>rectsOverlap(player,it)); 
+            if(target){ 
+              player.carrying=target; 
+              litter=litter.filter(it=>it!==target); 
+              playPickup(); 
+              dbgLitter.textContent = String(litter.length); 
+            } 
+          } else { 
+            const carry=player.carrying; 
+            const binHit=bins.find(b=>rectsOverlap(player,b)); 
+            if(binHit){ 
+              if(carry.bin===binHit.name){ 
+                comboStreak++; 
+                bestCombo=Math.max(bestCombo,comboStreak); 
+                let delta=10; 
+                if(currentLevel===3&&comboStreak>=3) delta+=5; 
+                if(currentLevel===4&&comboStreak>=3) delta+=5; 
+                score+=delta; 
+                if(currentLevel===4){ processed++; } 
+                else { itemsRemaining-=1; } 
+                playCorrect(); 
+              } else { 
+                comboStreak=0; 
+                mistakes++; 
+                score-=(currentLevel===4? wrongPenalty:5); 
+                playIncorrect(); 
+              } 
+              player.carrying=null; 
+              if(currentLevel!==4&&itemsRemaining>0) spawnLitter(1,itemTypesBasic); 
+            } 
+          } 
+        } 
+      } else { 
+        player._spaceDown=false; 
+      } 
+      setHUD(); 
+      if(currentLevel!==4&&itemsRemaining<=0){ finishLevel(true); } 
+      if(currentLevel===4&&timeLeft<=0){ finishLevel(true); } 
+    }
+
+    function finishLevel(passed){ 
+      playing=false; 
+      if(currentLevel===4) spawnerActive=false; 
+      endMessage = passed ? 'Level Complete!' : 'Time\'s up!'; // Set the message
+      if(passed){ if(timeLeft>=10) badgeStates.RapidRecycler=true; if(mistakes===0) badgeStates.EcoHero=true; if(bestCombo>=5) badgeStates.BinBoss=true; } updateBadgeBar(); if(passed){ if(progress.highestUnlocked<currentLevel+1){ progress.highestUnlocked=currentLevel+1; } if(!progress.completed.includes(currentLevel)) progress.completed.push(currentLevel); saveProgress(); updateMenuLocks(); } endTitle.textContent=passed?'Level Complete!':'Time’s up!'; endSummary.textContent=`Score: ${score} | Best streak: ${bestCombo} | Mistakes: ${mistakes}`; endBadges.innerHTML=''; const names=Object.entries(badgeStates).filter(([n,e])=>e).map(([n])=>n); if(names.length===0){ const span=document.createElement('span'); span.textContent='No badges earned this time — try the challenges!'; endBadges.appendChild(span); } else { names.forEach(n=>{ const b=document.createElement('span'); b.className='badge'; b.textContent=n; endBadges.appendChild(b); }); } nextBtn.disabled=!(passed&&progress.highestUnlocked>=currentLevel+1&&currentLevel<4); overlay.style.display='flex'; menuPane.style.display='none'; endPane.style.display=''; }
+
+    function tick(){ update(); draw(); requestAnimationFrame(tick); }
+    function runTimer(){ setInterval(()=>{ if(mode==='play'&&playing&&timeLeft>0){ timeLeft--; hudTime.textContent=`Time: ${timeLeft}`; if(timeLeft===0&&currentLevel!==4&&itemsRemaining>0){ finishLevel(false); } if(timeLeft===0&&currentLevel===4){ finishLevel(processed>0); } } },1000); }
+
+    // Input — prevent page scroll on arrows + space, track debug
+    function updateDebug(){ dbgFocus.textContent = 'Focus: ' + (document.activeElement===canvas ? 'canvas (OK)' : (document.activeElement ? document.activeElement.tagName : 'none')); kLeft.textContent = keys['ArrowLeft'] ? 'true' : 'false'; kRight.textContent = keys['ArrowRight'] ? 'true' : 'false'; kUp.textContent = keys['ArrowUp'] ? 'true' : 'false'; kDown.textContent = keys['ArrowDown'] ? 'true' : 'false'; kSpace.textContent = keys['Space'] ? 'true' : 'false'; }
+
+    window.addEventListener('keydown', e=>{ keys[e.code]=true; if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault(); updateDebug(); });
+    window.addEventListener('keyup',   e=>{ keys[e.code]=false; updateDebug(); });
+    canvas.addEventListener('keydown', e=>{ keys[e.code]=true; if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault(); updateDebug(); });
+    canvas.addEventListener('keyup',   e=>{ keys[e.code]=false; updateDebug(); });
+
+    // Menu wiring
+    document.querySelectorAll('#menu button[data-level]').forEach(btn=>{ btn.addEventListener('click', ()=>{ const lvl = parseInt(btn.dataset.level); startLevel(lvl); }); });
+    document.getElementById('closeMenu').addEventListener('click', ()=> overlay.style.display='none');
+    openMenuBtn.addEventListener('click', ()=>{ updateMenuLocks(); splashPane.style.display='none'; endPane.style.display='none'; menuPane.style.display=''; overlay.style.display='flex'; startLevelBtn.disabled = true; startLevelBtn.textContent = 'Start Level (select above)'; });
+
+    replayBtn.addEventListener('click', ()=>{ overlay.style.display='none'; startLevel(currentLevel); });
+    nextBtn.addEventListener('click', ()=>{ overlay.style.display='none'; startLevel(Math.min(currentLevel+1,4)); });
+    goMenuBtn.addEventListener('click', ()=>{ updateMenuLocks(); splashPane.style.display='none'; avatarPane.style.display='none'; endPane.style.display='none'; menuPane.style.display=''; overlay.style.display='flex'; startLevelBtn.disabled = true; startLevelBtn.textContent = 'Start Level (select above)'; });
+
+    // Splash screen button - show avatar selection
+    startGameBtn.addEventListener('click', ()=>{ splashPane.style.display='none'; avatarPane.style.display=''; });
+    
+    // Avatar selection
+    document.querySelectorAll('.avatar-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.avatar-card').forEach(c => c.style.border = '3px solid transparent');
+        card.style.border = '3px solid #2e7d32';
+        selectedAvatar = card.dataset.avatar;
+        confirmAvatarBtn.disabled = false;
+      });
+    });
+    
+    confirmAvatarBtn.addEventListener('click', ()=>{ avatarPane.style.display='none'; menuPane.style.display=''; updateMenuLocks(); });
+    
+    // Change Avatar button - go back to avatar selection from menu
+    changeAvatarBtn.addEventListener('click', ()=>{ menuPane.style.display='none'; avatarPane.style.display=''; });
+    
+    // Draw avatar previews on canvases
+    function drawAvatarPreviews() {
+      document.querySelectorAll('.avatar-preview').forEach(canvas => {
+        const ctx = canvas.getContext('2d');
+        const type = canvas.dataset.type;
+        ctx.clearRect(0, 0, 80, 80);
+        switch(type) {
+          case 'boy': drawBoyAvatar(ctx, 0, 0, 1); break;
+          case 'girl': drawGirlAvatar(ctx, 0, 0, 1); break;
+          case 'robot': drawRobotAvatar(ctx, 0, 0, 1); break;
+          case 'cat': drawCatAvatar(ctx, 0, 0, 1); break;
+          case 'dog': drawDogAvatar(ctx, 0, 0, 1); break;
+          case 'alien': drawAlienAvatar(ctx, 0, 0, 1); break;
+        }
+      });
+    }
+
+    muteBtn.addEventListener('click', ()=>{ audioEnabled=!audioEnabled; muteBtn.textContent=audioEnabled?'🔈 Sound':'🔇 Muted'; if(audioEnabled) playTone(600,0.06); });
+
+    changeAvatarHUDBtn.addEventListener('click', ()=>{ overlay.style.display='flex'; avatarPane.style.display=''; menuPane.style.display='none'; splashPane.style.display='none'; endPane.style.display='none'; });
+
+    resetBtn.addEventListener('click', ()=>{ localStorage.removeItem(progressKey); progress = { highestUnlocked:1, completed:[] }; updateMenuLocks(); openMenuBtn.click(); });
+
+    // roundRect polyfill
+    if(!CanvasRenderingContext2D.prototype.roundRect){ CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){ const c=this; c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); return c; } }
+
+    // Boot — show splash screen first
+    (function(){ 
+      hudTitle.textContent='Clean City Quest'; 
+      updateMenuLocks(); 
+      splashPane.style.display=''; 
+      avatarPane.style.display='none'; 
+      menuPane.style.display='none'; 
+      endPane.style.display='none'; 
+      overlay.style.display='flex'; 
+      runTimer(); 
+      tick(); 
+      canvas.focus(); 
+      updateDebug();
+      // Draw avatar previews after a short delay to ensure DOM is ready
+      setTimeout(drawAvatarPreviews, 100);
+    })();
+  
+
+ 
+  
+  </script>
+</body>
+</html>
